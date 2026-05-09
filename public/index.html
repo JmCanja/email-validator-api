@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Email Validator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #18181f;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #f0f0f5;
+    --muted: #666678;
+    --accent: #7c6cfc;
+    --accent2: #a78bfa;
+    --green: #34d399;
+    --red: #f87171;
+    --amber: #fbbf24;
+    --blue: #60a5fa;
+    --glow: rgba(124,108,252,0.15);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(124,108,252,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,108,252,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 800px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* Header */
+  header {
+    padding: 60px 0 48px;
+    text-align: center;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--accent2);
+    background: rgba(124,108,252,0.1);
+    border: 1px solid rgba(124,108,252,0.2);
+    padding: 5px 12px; border-radius: 20px;
+    margin-bottom: 20px;
+  }
+  .badge::before { content: '●'; font-size: 8px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  h1 {
+    font-size: clamp(36px, 6vw, 56px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    margin-bottom: 14px;
+    background: linear-gradient(135deg, #fff 0%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle {
+    font-size: 16px; font-weight: 400;
+    color: var(--muted); max-width: 420px; margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex; gap: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 24px;
+    width: fit-content;
+  }
+  .tab {
+    padding: 9px 24px; border-radius: 9px;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px; font-weight: 600;
+    border: none; cursor: pointer;
+    transition: all 0.2s;
+    background: transparent; color: var(--muted);
+  }
+  .tab.active {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 0 20px rgba(124,108,252,0.4);
+  }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 20px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--border2); }
+
+  /* Input */
+  .input-wrap { position: relative; margin-bottom: 14px; }
+  .input-wrap input, .input-wrap textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .input-wrap input {
+    height: 48px; padding: 0 16px;
+    padding-right: 130px;
+  }
+  .input-wrap textarea {
+    padding: 14px 16px;
+    min-height: 140px; resize: vertical;
+    line-height: 1.7;
+  }
+  .input-wrap input:focus, .input-wrap textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(124,108,252,0.15);
+  }
+  input::placeholder, textarea::placeholder { color: var(--muted); }
+
+  .btn-inline {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    height: 36px; padding: 0 18px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 7px;
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  .btn-inline:hover { background: var(--accent2); box-shadow: 0 0 16px rgba(124,108,252,0.4); }
+  .btn-inline:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn {
+    height: 44px; padding: 0 20px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 10px;
+    font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn:hover { background: var(--accent2); box-shadow: 0 0 20px rgba(124,108,252,0.4); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-ghost {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); box-shadow: none; }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 14px; align-items: center; }
+
+  .hint { font-size: 12px; color: var(--muted); margin-top: 8px; font-family: 'DM Mono', monospace; }
+
+  /* Toggle */
+  .toggle-row {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--muted); margin-top: 12px;
+  }
+  .toggle {
+    position: relative; width: 36px; height: 20px;
+    cursor: pointer;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; inset: 0;
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 20px; transition: 0.2s;
+  }
+  .slider::before {
+    content: ''; position: absolute;
+    width: 14px; height: 14px;
+    left: 3px; top: 2px;
+    background: var(--muted); border-radius: 50%;
+    transition: 0.2s;
+  }
+  .toggle input:checked + .slider { background: var(--accent); border-color: var(--accent); }
+  .toggle input:checked + .slider::before { transform: translateX(16px); background: #fff; }
+
+  /* Result - Single */
+  .result-single {
+    margin-top: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+    animation: fadeUp 0.3s ease;
+  }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  .result-header {
+    display: flex; align-items: flex-start; gap: 14px; margin-bottom: 18px;
+  }
+  .status-icon { font-size: 28px; line-height: 1; flex-shrink: 0; }
+  .result-email {
+    font-family: 'DM Mono', monospace; font-size: 15px;
+    color: var(--text); word-break: break-all; margin-bottom: 4px;
+  }
+  .result-reason { font-size: 13px; }
+
+  .checks-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .check-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px; font-family: 'DM Mono', monospace;
+    padding: 4px 11px; border-radius: 20px;
+    border: 1px solid;
+  }
+  .pill-pass { background: rgba(52,211,153,0.08); color: var(--green); border-color: rgba(52,211,153,0.2); }
+  .pill-fail { background: rgba(248,113,113,0.08); color: var(--red); border-color: rgba(248,113,113,0.2); }
+  .pill-warn { background: rgba(251,191,36,0.08); color: var(--amber); border-color: rgba(251,191,36,0.2); }
+  .pill-skip { background: rgba(96,165,250,0.08); color: var(--blue); border-color: rgba(96,165,250,0.2); }
+
+  .flags-list { display: flex; flex-direction: column; gap: 6px; }
+  .flag-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--amber);
+    font-family: 'DM Mono', monospace;
+    padding: 7px 12px;
+    background: rgba(251,191,36,0.05);
+    border: 1px solid rgba(251,191,36,0.15);
+    border-radius: 8px;
+  }
+
+  .score-bar { margin-top: 14px; }
+  .score-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; font-family: 'DM Mono', monospace; }
+  .score-track {
+    height: 4px; background: var(--border);
+    border-radius: 4px; overflow: hidden;
+  }
+  .score-fill {
+    height: 100%; border-radius: 4px;
+    transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* MX records */
+  .mx-records { margin-top: 12px; }
+  .mx-label { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .mx-list { display: flex; flex-direction: column; gap: 4px; }
+  .mx-item {
+    display: flex; gap: 10px; align-items: center;
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    padding: 5px 10px; background: var(--surface); border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .mx-prio { color: var(--accent2); min-width: 28px; }
+  .mx-host { color: var(--text); }
+
+  /* Bulk */
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    margin-bottom: 20px;
+  }
+  .stat {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; text-align: center;
+  }
+  .stat-val { font-size: 28px; font-weight: 700; margin-bottom: 2px; }
+  .stat-lbl { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .filter-btn {
+    font-size: 12px; padding: 5px 14px; border-radius: 20px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--muted); cursor: pointer; font-family: 'Syne', sans-serif;
+    font-weight: 600; transition: all 0.15s;
+  }
+  .filter-btn.active, .filter-btn:hover {
+    background: var(--surface2); color: var(--text); border-color: var(--border2);
+  }
+
+  .bulk-list { display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow-y: auto; }
+  .bulk-list::-webkit-scrollbar { width: 4px; }
+  .bulk-list::-webkit-scrollbar-track { background: transparent; }
+  .bulk-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+  .bulk-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; transition: border-color 0.15s;
+    animation: fadeUp 0.2s ease;
+  }
+  .bulk-row:hover { border-color: var(--border2); }
+  .bulk-icon { font-size: 16px; flex-shrink: 0; }
+  .bulk-email { flex: 1; font-family: 'DM Mono', monospace; font-size: 12.5px; color: var(--text); word-break: break-all; }
+  .bulk-reason { font-size: 11px; color: var(--muted); text-align: right; max-width: 200px; }
+  .bulk-badge {
+    font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px;
+    white-space: nowrap; font-family: 'DM Mono', monospace; flex-shrink: 0;
+  }
+  .badge-valid { background: rgba(52,211,153,0.1); color: var(--green); }
+  .badge-invalid { background: rgba(248,113,113,0.1); color: var(--red); }
+  .badge-risky { background: rgba(251,191,36,0.1); color: var(--amber); }
+  .badge-unknown { background: rgba(96,165,250,0.1); color: var(--blue); }
+
+  .dedup-banner {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px; border-radius: 8px; margin-bottom: 12px;
+    background: rgba(124,108,252,0.08); border: 1px solid rgba(124,108,252,0.2);
+    font-size: 12px; color: var(--accent2); font-family: 'DM Mono', monospace;
+    animation: fadeUp 0.2s ease;
+  }
+  .dedup-banner span { flex: 1; }
+  .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
+  .stat-divider { grid-column: span 5; height: 1px; background: var(--border); margin: -4px 0; }
+  .export-row { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 12px; }
+
+  /* Loading */
+  .loading {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    padding: 16px 0;
+  }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Error */
+  .error-box {
+    padding: 14px 16px;
+    background: rgba(248,113,113,0.06);
+    border: 1px solid rgba(248,113,113,0.2);
+    border-radius: 10px;
+    color: var(--red); font-size: 13px;
+    font-family: 'DM Mono', monospace;
+    margin-top: 16px;
+    animation: fadeUp 0.2s ease;
+  }
+
+  /* API URL config */
+  .config-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 24px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .config-label { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; white-space: nowrap; }
+  .config-input {
+    flex: 1; min-width: 200px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    padding: 7px 12px; outline: none;
+  }
+  .config-input:focus { border-color: var(--accent); }
+  .config-status { font-size: 11px; font-family: 'DM Mono', monospace; }
+
+  /* Score colors */
+  .score-high { background: linear-gradient(90deg, var(--green), #059669); }
+  .score-mid  { background: linear-gradient(90deg, var(--amber), #d97706); }
+  .score-low  { background: linear-gradient(90deg, var(--red), #dc2626); }
+
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+  @media (max-width: 600px) {
+    .summary-grid { grid-template-columns: repeat(3, 1fr); }
+    .stat-divider { grid-column: span 3; }
+    .bulk-reason { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="badge">Live API Connected</div>
+    <h1>Email Validator</h1>
+    <p class="subtitle">Real-time format, MX record, and SMTP verification powered by your Railway API</p>
+  </header>
+
+  <!-- API Config -->
+  <div class="config-bar">
+    <span class="config-label">API_URL</span>
+    <input class="config-input" id="api-url" value="https://email-validator-api-production-554b.up.railway.app" placeholder="https://your-api.railway.app"/>
+    <span class="config-status" id="api-status" style="color:var(--muted)">not tested</span>
+    <button class="btn" style="height:32px;padding:0 14px;font-size:12px;" onclick="testConnection()">Test</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('single',this)">Single Email</button>
+    <button class="tab" onclick="switchTab('bulk',this)">Bulk / List</button>
+  </div>
+
+  <!-- Single panel -->
+  <div id="panel-single">
+    <div class="card">
+      <div class="input-wrap">
+        <input type="email" id="single-email" placeholder="Enter email address…" onkeydown="if(event.key==='Enter')verifySingle()"/>
+        <button class="btn-inline" id="single-btn" onclick="verifySingle()">Verify →</button>
+      </div>
+      <div class="toggle-row">
+        <label class="toggle">
+          <input type="checkbox" id="single-smtp" checked/>
+          <span class="slider"></span>
+        </label>
+        <span>SMTP probe (slower but checks if mailbox exists)</span>
+      </div>
+    </div>
+    <div id="single-result"></div>
+  </div>
+
+  <!-- Bulk panel -->
+  <div id="panel-bulk" style="display:none;">
+    <div class="card">
+      <div class="input-wrap">
+        <textarea id="bulk-emails" placeholder="Paste emails here — one per line, or comma/semicolon separated&#10;&#10;alice@example.com&#10;bob@domain.org, carol@test.io&#10;invalid-email"></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="bulk-btn" onclick="verifyBulk()">Verify All →</button>
+        <button class="btn btn-ghost" onclick="clearBulk()">Clear</button>
+      </div>
+      <div class="toggle-row" style="margin-top:10px;">
+        <label class="toggle">
+          <input type="checkbox" id="bulk-smtp"/>
+          <span class="slider"></span>
+        </label>
+        <span>SMTP probe (recommended off for large lists)</span>
+      </div>
+      <div class="toggle-row" style="margin-top:8px;">
+        <label class="toggle">
+          <input type="checkbox" id="bulk-dedup" checked/>
+          <span class="slider"></span>
+        </label>
+        <span>Remove duplicate emails before validating</span>
+      </div>
+      <p class="hint">Max 100 emails per request · one-per-line, comma, or semicolon separated</p>
+    </div>
+    <div id="bulk-result"></div>
+  </div>
+
+</div>
+
+<script>
+  const API_DEFAULT = 'https://email-validator-api-production-554b.up.railway.app';
+
+  function getAPI() {
+    return (document.getElementById('api-url').value || API_DEFAULT).replace(/\/$/, '');
+  }
+
+  function switchTab(name, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('panel-single').style.display = name === 'single' ? '' : 'none';
+    document.getElementById('panel-bulk').style.display = name === 'bulk' ? '' : 'none';
+  }
+
+  async function testConnection() {
+    const el = document.getElementById('api-status');
+    el.style.color = 'var(--muted)'; el.textContent = 'testing…';
+    try {
+      const r = await fetch(getAPI() + '/health');
+      const d = await r.json();
+      if (d.status === 'ok') {
+        el.style.color = 'var(--green)'; el.textContent = '✓ connected';
+      } else { throw new Error(); }
+    } catch {
+      el.style.color = 'var(--red)'; el.textContent = '✗ unreachable';
+    }
+  }
+
+  // ── Single ─────────────────────────────────────────────────────────────────
+  async function verifySingle() {
+    const email = document.getElementById('single-email').value.trim();
+    const smtp = document.getElementById('single-smtp').checked;
+    const box = document.getElementById('single-result');
+    const btn = document.getElementById('single-btn');
+    if (!email) return;
+
+    btn.disabled = true;
+    box.innerHTML = `<div class="loading"><div class="spinner"></div>Connecting to mail server${smtp ? ' and probing SMTP' : ''}…</div>`;
+
+    try {
+      const res = await fetch(getAPI() + '/api/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, smtp_check: smtp })
+      });
+      const data = await res.json();
+      box.innerHTML = renderSingle(data);
+    } catch (e) {
+      box.innerHTML = `<div class="error-box">⚠ Could not reach API — make sure the server is running and the URL above is correct.<br><small>${e.message}</small></div>`;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderSingle(d) {
+    const icons = { valid:'✅', invalid:'❌', risky:'⚠️', unknown:'🔍' };
+    const colors = { valid:'var(--green)', invalid:'var(--red)', risky:'var(--amber)', unknown:'var(--blue)' };
+
+    const fmtPill = d.checks.format.pass
+      ? pill('pass', '✓ Format')
+      : pill('fail', '✗ Format');
+
+    const mxPill = d.checks.mx.pass
+      ? pill('pass', `✓ MX (${d.checks.mx.records?.length || 0})`)
+      : pill('fail', '✗ MX');
+
+    let smtpPill = '';
+    if (d.checks.smtp.skipped) smtpPill = pill('skip', '— SMTP skipped');
+    else if (d.checks.smtp.pass === true)  smtpPill = pill('pass', '✓ SMTP');
+    else if (d.checks.smtp.pass === false) smtpPill = pill('fail', '✗ SMTP');
+    else smtpPill = pill('skip', '? SMTP inconclusive');
+
+    const flagsHtml = d.flags && d.flags.length
+      ? `<div class="flags-list">${d.flags.map(f=>`<div class="flag-item">⚑ ${esc(f.message)}</div>`).join('')}</div><div class="divider"></div>`
+      : '';
+
+    const mxHtml = d.checks.mx.records && d.checks.mx.records.length
+      ? `<div class="mx-records">
+          <div class="mx-label">MX Records</div>
+          <div class="mx-list">${d.checks.mx.records.map(r=>`
+            <div class="mx-item"><span class="mx-prio">${r.priority}</span><span class="mx-host">${esc(r.exchange)}</span></div>
+          `).join('')}</div>
+        </div>` : '';
+
+    const scoreClass = d.score >= 70 ? 'score-high' : d.score >= 40 ? 'score-mid' : 'score-low';
+
+    return `<div class="result-single">
+      <div class="result-header">
+        <div class="status-icon">${icons[d.status]||'🔍'}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="result-email">${esc(d.email)}</div>
+          <div class="result-reason" style="color:${colors[d.status]||'var(--muted)'};">${esc(d.reason)}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:22px;font-weight:800;color:${colors[d.status]};">${d.score}</div>
+          <div style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;">SCORE</div>
+        </div>
+      </div>
+      <div class="checks-grid">${fmtPill}${mxPill}${smtpPill}</div>
+      ${flagsHtml}
+      ${mxHtml}
+      <div class="score-bar">
+        <div class="score-label">Confidence score: ${d.score}/100 · ${d.duration_ms}ms</div>
+        <div class="score-track"><div class="score-fill ${scoreClass}" style="width:${d.score}%"></div></div>
+      </div>
+    </div>`;
+  }
+
+  function pill(type, label) {
+    return `<span class="check-pill pill-${type}">${label}</span>`;
+  }
+
+  // ── Bulk ───────────────────────────────────────────────────────────────────
+  let bulkData = [];
+  let activeFilter = 'all';
+  let dedupInfo = null;
+
+  async function verifyBulk() {
+    const raw = document.getElementById('bulk-emails').value;
+    const smtp = document.getElementById('bulk-smtp').checked;
+    const dedup = document.getElementById('bulk-dedup').checked;
+    const box = document.getElementById('bulk-result');
+    const btn = document.getElementById('bulk-btn');
+
+    let emails = raw.split(/[\n,;]+/).map(e => e.trim().toLowerCase()).filter(e => e.length > 0);
+    if (!emails.length) return;
+
+    // Deduplication
+    dedupInfo = null;
+    if (dedup) {
+      const original = emails.length;
+      emails = [...new Set(emails)];
+      const removed = original - emails.length;
+      if (removed > 0) dedupInfo = { original, removed, after: emails.length };
+    }
+
+    if (emails.length > 100) { alert('Max 100 emails per request (after deduplication).'); return; }
+
+    btn.disabled = true;
+    box.innerHTML = `<div class="loading"><div class="spinner"></div>Validating ${emails.length} email${emails.length > 1 ? 's' : ''}${dedupInfo ? ` (${dedupInfo.removed} duplicate${dedupInfo.removed>1?'s':''} removed)` : ''}…</div>`;
+
+    try {
+      const res = await fetch(getAPI() + '/api/validate/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails, smtp_check: smtp })
+      });
+      const data = await res.json();
+      bulkData = data.results || [];
+      activeFilter = 'all';
+      renderBulk(data);
+    } catch (e) {
+      box.innerHTML = `<div class="error-box">⚠ Could not reach API — ${e.message}</div>`;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderBulk(data) {
+    const box = document.getElementById('bulk-result');
+    const s = data.summary;
+
+    let filtered = bulkData;
+    if (activeFilter !== 'all') filtered = bulkData.filter(r => r.status === activeFilter);
+
+    // Dedup banner
+    const dedupHtml = dedupInfo
+      ? `<div class="dedup-banner">
+          <span>🧹 Removed <strong>${dedupInfo.removed}</strong> duplicate${dedupInfo.removed>1?'s':''} — validated <strong>${dedupInfo.after}</strong> of ${dedupInfo.original} emails</span>
+        </div>` : '';
+
+    // Rows
+    const rowsHtml = filtered.map(r => {
+      const icons = { valid: '✅', invalid: '❌', risky: '⚠️', unknown: '🔍' };
+      return `<div class="bulk-row">
+        <span class="bulk-icon">${icons[r.status] || '🔍'}</span>
+        <span class="bulk-email">${esc(r.email)}</span>
+        <span class="bulk-reason">${esc(r.reason)}</span>
+        <span class="bulk-badge badge-${r.status}">${r.status}</span>
+      </div>`;
+    }).join('');
+
+    const notValid = s.invalid + s.risky + s.unknown;
+
+    box.innerHTML = `
+      ${dedupHtml}
+      <div class="summary-grid">
+        <div class="stat">
+          <div class="stat-val" style="color:var(--text)">${s.total}</div>
+          <div class="stat-lbl">Total</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" style="color:var(--green)">${s.valid}</div>
+          <div class="stat-lbl">✓ Valid</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" style="color:var(--red)">${notValid}</div>
+          <div class="stat-lbl">✗ Not Valid</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" style="color:var(--amber)">${s.risky}</div>
+          <div class="stat-lbl">⚑ Risky</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" style="color:var(--blue)">${s.unknown}</div>
+          <div class="stat-lbl">? Unknown</div>
+        </div>
+      </div>
+
+      <div class="export-row">
+        <button class="btn btn-ghost" style="height:34px;padding:0 14px;font-size:12px;" onclick="exportCSV('all')">↓ All CSV</button>
+        <button class="btn btn-ghost" style="height:34px;padding:0 14px;font-size:12px;color:var(--green);border-color:rgba(52,211,153,0.3);" onclick="exportCSV('valid')">↓ Valid CSV</button>
+        <button class="btn btn-ghost" style="height:34px;padding:0 14px;font-size:12px;color:var(--red);border-color:rgba(248,113,113,0.3);" onclick="exportCSV('invalid')">↓ Invalid CSV</button>
+        <button class="btn btn-ghost" style="height:34px;padding:0 14px;font-size:12px;color:var(--accent2);border-color:rgba(124,108,252,0.3);" onclick="exportExcel()">↓ Excel</button>
+      </div>
+
+      <div class="filter-row">
+        <button class="filter-btn ${activeFilter==='all'?'active':''}" onclick="setFilter('all')">All (${s.total})</button>
+        <button class="filter-btn ${activeFilter==='valid'?'active':''}" onclick="setFilter('valid')">Valid (${s.valid})</button>
+        <button class="filter-btn ${activeFilter==='risky'?'active':''}" onclick="setFilter('risky')">Risky (${s.risky})</button>
+        <button class="filter-btn ${activeFilter==='unknown'?'active':''}" onclick="setFilter('unknown')">Unknown (${s.unknown})</button>
+        <button class="filter-btn ${activeFilter==='invalid'?'active':''}" onclick="setFilter('invalid')">Invalid (${s.invalid})</button>
+      </div>
+      <div class="bulk-list">${rowsHtml || '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">No results in this category</div>'}</div>`;
+  }
+
+  function setFilter(f) {
+    activeFilter = f;
+    if (bulkData.length) {
+      const summary = {
+        total: bulkData.length,
+        valid:   bulkData.filter(r => r.status === 'valid').length,
+        invalid: bulkData.filter(r => r.status === 'invalid').length,
+        risky:   bulkData.filter(r => r.status === 'risky').length,
+        unknown: bulkData.filter(r => r.status === 'unknown').length,
+      };
+      renderBulk({ summary, results: bulkData });
+    }
+  }
+
+  function clearBulk() {
+    document.getElementById('bulk-emails').value = '';
+    document.getElementById('bulk-result').innerHTML = '';
+    bulkData = []; dedupInfo = null;
+  }
+
+  function getFilteredRows(filter) {
+    if (filter === 'valid') return bulkData.filter(r => r.status === 'valid');
+    if (filter === 'invalid') return bulkData.filter(r => r.status === 'invalid' || r.status === 'risky' || r.status === 'unknown');
+    return bulkData;
+  }
+
+  function exportCSV(filter) {
+    const rows = getFilteredRows(filter);
+    const headers = ['Email', 'Status', 'Score', 'Deliverable', 'Reason', 'Format Check', 'MX Check', 'SMTP Check', 'Duration(ms)'];
+    const data = rows.map(r => [
+      r.email, r.status, r.score,
+      r.deliverable === true ? 'Yes' : r.deliverable === false ? 'No' : 'Unknown',
+      r.reason,
+      r.checks.format.pass ? 'Pass' : 'Fail',
+      r.checks.mx.pass ? 'Pass' : 'Fail',
+      r.checks.smtp.skipped ? 'Skipped' : r.checks.smtp.pass === true ? 'Pass' : r.checks.smtp.pass === false ? 'Fail' : 'Inconclusive',
+      r.duration_ms
+    ]);
+    const csv = [headers, ...data].map(r => r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\n');
+    const label = filter === 'valid' ? 'valid' : filter === 'invalid' ? 'not-valid' : 'all';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `email-validation-${label}.csv`;
+    a.click();
+  }
+
+  function exportExcel() {
+    const wb = XLSX.utils.book_new();
+
+    // All results sheet
+    const allHeaders = ['Email', 'Status', 'Score', 'Deliverable', 'Reason', 'Format', 'MX', 'SMTP', 'Duration(ms)'];
+    const toRow = r => [
+      r.email, r.status, r.score,
+      r.deliverable === true ? 'Yes' : r.deliverable === false ? 'No' : 'Unknown',
+      r.reason,
+      r.checks.format.pass ? 'Pass' : 'Fail',
+      r.checks.mx.pass ? 'Pass' : 'Fail',
+      r.checks.smtp.skipped ? 'Skipped' : r.checks.smtp.pass === true ? 'Pass' : r.checks.smtp.pass === false ? 'Fail' : 'Inconclusive',
+      r.duration_ms
+    ];
+
+    const allData = [allHeaders, ...bulkData.map(toRow)];
+    const wsAll = XLSX.utils.aoa_to_sheet(allData);
+    wsAll['!cols'] = [{ wch: 32 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 40 }, { wch: 8 }, { wch: 8 }, { wch: 14 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, wsAll, 'All Results');
+
+    // Valid sheet
+    const validRows = bulkData.filter(r => r.status === 'valid');
+    const wsValid = XLSX.utils.aoa_to_sheet([['Email', 'Score', 'Reason', 'Duration(ms)'], ...validRows.map(r => [r.email, r.score, r.reason, r.duration_ms])]);
+    wsValid['!cols'] = [{ wch: 32 }, { wch: 8 }, { wch: 40 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, wsValid, 'Valid');
+
+    // Not valid sheet
+    const notValidRows = bulkData.filter(r => r.status !== 'valid');
+    const wsInvalid = XLSX.utils.aoa_to_sheet([['Email', 'Status', 'Score', 'Reason', 'Duration(ms)'], ...notValidRows.map(r => [r.email, r.status, r.score, r.reason, r.duration_ms])]);
+    wsInvalid['!cols'] = [{ wch: 32 }, { wch: 10 }, { wch: 8 }, { wch: 40 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, wsInvalid, 'Not Valid');
+
+    // Summary sheet
+    const total = bulkData.length;
+    const valid = validRows.length;
+    const invalid = bulkData.filter(r => r.status === 'invalid').length;
+    const risky = bulkData.filter(r => r.status === 'risky').length;
+    const unknown = bulkData.filter(r => r.status === 'unknown').length;
+    const wsSummary = XLSX.utils.aoa_to_sheet([
+      ['Summary', ''],
+      ['Total Validated', total],
+      ['Valid', valid],
+      ['Invalid', invalid],
+      ['Risky', risky],
+      ['Unknown', unknown],
+      ['Not Valid (total)', invalid + risky + unknown],
+      ['Valid %', total > 0 ? ((valid / total) * 100).toFixed(1) + '%' : '0%'],
+      ['Generated', new Date().toLocaleString()],
+    ]);
+    wsSummary['!cols'] = [{ wch: 20 }, { wch: 16 }];
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+    XLSX.writeFile(wb, 'email-validation.xlsx');
+  }
+
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Auto-test on load
+  window.addEventListener('load', testConnection);
+</script>
+</body>
+</html>
