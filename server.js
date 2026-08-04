@@ -247,6 +247,31 @@ function smtpProbe(mxHost, email) {
   });
 }
 
+
+// ─── Catch-all detection ──────────────────────────────────────────────────────
+const catchAllCache = new Map(); // cache per domain to avoid double probing
+
+function randomString(len = 12) {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  return Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+async function isCatchAll(mxHost, domain) {
+  if (catchAllCache.has(domain)) return catchAllCache.get(domain);
+
+  const fakeEmail = `${randomString()}@${domain}`;
+  const probe = await smtpProbe(mxHost, fakeEmail);
+
+  // If the server accepts a random fake address, it is catch-all
+  const result = probe.deliverable === true;
+  catchAllCache.set(domain, result);
+
+  // Expire cache after 10 minutes
+  setTimeout(() => catchAllCache.delete(domain), 10 * 60 * 1000);
+
+  return result;
+}
+
 // ─── Core validator ───────────────────────────────────────────────────────────
 async function fullValidate(email, options = {}) {
   const start = Date.now();
@@ -258,6 +283,7 @@ async function fullValidate(email, options = {}) {
       format:     { pass: false, detail: null },
       mx:         { pass: false, detail: null, records: [] },
       smtp:       { pass: null,  detail: null, skipped: false },
+      catch_all:  { detected: false, detail: null, skipped: false },
     },
     flags:        [],
     score:        0,      // 0-100
@@ -314,6 +340,26 @@ async function fullValidate(email, options = {}) {
     result.checks.smtp.smtpCode = smtp.smtpCode;
     result.checks.smtp.log = options.debug ? smtp.log : undefined;
     result.deliverable = smtp.deliverable;
+
+    // 4b. Catch-all detection (only if SMTP said deliverable or inconclusive)
+    if (smtp.deliverable !== false) {
+      try {
+        const catchAll = await isCatchAll(primaryMX, domain);
+        result.checks.catch_all.detected = catchAll;
+        result.checks.catch_all.detail = catchAll
+          ? 'Catch-all domain — server accepts all addresses, mailbox existence unverifiable'
+          : 'Not catch-all — server rejects unknown addresses';
+        if (catchAll) {
+          result.flags.push({ type: 'catch_all', message: 'Catch-all domain detected — may cause bounces in GHL' });
+        }
+      } catch (e) {
+        result.checks.catch_all.skipped = true;
+        result.checks.catch_all.detail = 'Catch-all probe failed: ' + e.message;
+      }
+    } else {
+      result.checks.catch_all.skipped = true;
+      result.checks.catch_all.detail = 'Skipped — mailbox already rejected';
+    }
   }
 
   // 5. Score & status
@@ -325,33 +371,55 @@ async function fullValidate(email, options = {}) {
   else if (result.checks.smtp.skipped)      score += 15;
 
   const disposable = result.flags.find(f => f.type === 'disposable');
-  const typo = result.flags.find(f => f.type === 'typo');
+  const typo      = result.flags.find(f => f.type === 'typo');
+  const catchAll  = result.flags.find(f => f.type === 'catch_all');
   if (disposable) score = Math.max(0, score - 20);
   if (typo)       score = Math.max(0, score - 10);
+  if (catchAll)   score = Math.max(0, score - 20);
 
   result.score = score;
+
+  // GHL safe-to-send verdict
+  result.safe_to_send = false;
 
   if (result.checks.smtp.pass === false) {
     result.status = 'invalid';
     result.reason = result.checks.smtp.detail;
+    result.safe_to_send = false;
   } else if (result.checks.smtp.pass === true) {
-    result.status = disposable ? 'risky' : 'valid';
-    result.reason = disposable
-      ? 'Deliverable but from a disposable provider'
-      : 'Mailbox verified and accepting mail';
+    if (catchAll) {
+      result.status = 'risky';
+      result.reason = 'Catch-all domain — cannot confirm mailbox exists, risk of bounce in GHL';
+      result.safe_to_send = false;
+    } else if (disposable) {
+      result.status = 'risky';
+      result.reason = 'Deliverable but from a disposable provider';
+      result.safe_to_send = false;
+    } else {
+      result.status = 'valid';
+      result.reason = 'Mailbox verified — safe to send in GHL';
+      result.safe_to_send = true;
+    }
   } else {
     // SMTP inconclusive
-    if (disposable) {
+    if (catchAll) {
+      result.status = 'risky';
+      result.reason = 'Catch-all domain — may cause bounces in GHL';
+      result.safe_to_send = false;
+    } else if (disposable) {
       result.status = 'risky';
       result.reason = 'Disposable email provider';
+      result.safe_to_send = false;
     } else if (typo) {
       result.status = 'risky';
       result.reason = typo.message;
+      result.safe_to_send = false;
     } else {
       result.status = 'unknown';
       result.reason = result.checks.smtp.skipped
         ? 'Syntax and MX valid — SMTP not checked'
         : result.checks.smtp.detail;
+      result.safe_to_send = false;
     }
   }
 
@@ -363,7 +431,7 @@ async function fullValidate(email, options = {}) {
 
 // Health
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.0.0', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', version: '1.1.0', timestamp: new Date().toISOString() });
 });
 
 // Single email
