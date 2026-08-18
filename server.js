@@ -463,25 +463,40 @@ async function fullValidate(email, options = {}) {
     return result;
   }
 
-  // 4. SMTP check (optional — skip if smtpCheck=false)
+  // 4. SMTP check via Mailboxlayer (optional — skip if smtpCheck=false)
   if (options.smtpCheck === false) {
     result.checks.smtp.skipped = true;
     result.checks.smtp.detail = 'SMTP check skipped';
   } else {
     const primaryMX = mx.records[0].exchange;
-    const smtp = await smtpProbe(primaryMX, email);
-    result.checks.smtp.pass = smtp.deliverable;
-    result.checks.smtp.detail = smtp.deliverable === true
-      ? `Mailbox accepted by ${primaryMX}`
-      : smtp.deliverable === false
-      ? smtp.error
-      : `Inconclusive: ${smtp.error}`;
-    result.checks.smtp.smtpCode = smtp.smtpCode;
-    result.checks.smtp.log = options.debug ? smtp.log : undefined;
-    result.deliverable = smtp.deliverable;
 
-    // 4b. Catch-all detection (only if SMTP said deliverable or inconclusive)
-    if (smtp.deliverable !== false) {
+    // Use Mailboxlayer for SMTP verification
+    const ml = await mailboxlayerCheck(email);
+    if (ml.success) {
+      result.checks.smtp.pass = ml.deliverable;
+      result.checks.smtp.detail = ml.deliverable
+        ? 'Mailbox verified via Mailboxlayer'
+        : 'Mailbox rejected via Mailboxlayer';
+      result.checks.smtp.score = ml.score;
+      result.deliverable = ml.deliverable;
+      if (ml.disposable && !result.flags.find(f => f.type === 'disposable')) {
+        result.flags.push({ type: 'disposable', message: 'Disposable/temporary email provider' });
+      }
+      if (ml.free && !result.flags.find(f => f.type === 'free_provider')) {
+        result.flags.push({ type: 'free_provider', message: 'Free email provider — not a business address' });
+      }
+      if (ml.did_you_mean && !result.flags.find(f => f.type === 'typo')) {
+        result.flags.push({ type: 'typo', message: 'Possible typo — did you mean "' + ml.did_you_mean + '"?' });
+      }
+    } else {
+      result.checks.smtp.pass = null;
+      result.checks.smtp.detail = 'SMTP inconclusive: ' + ml.error;
+      result.deliverable = null;
+    }
+
+    // 4b. Catch-all detection
+    const smtpDeliverable = result.checks.smtp.pass;
+    if (smtpDeliverable !== false) {
       try {
         const catchAll = await isCatchAll(primaryMX, domain);
         result.checks.catch_all.detected = catchAll;
@@ -583,7 +598,7 @@ async function fullValidate(email, options = {}) {
 
 // Health
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.3.4', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', version: '1.4.0', timestamp: new Date().toISOString() });
 });
 
 // Single email
