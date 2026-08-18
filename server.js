@@ -53,6 +53,101 @@ const DISPOSABLE_DOMAINS = new Set([
   'spambog.de','spambog.ru','spambog.com.ua','garbagemail.org',
 ]);
 
+
+// ─── Free email providers ─────────────────────────────────────────────────────
+const FREE_EMAIL_PROVIDERS = new Set([
+  'gmail.com','yahoo.com','yahoo.co.uk','yahoo.co.in','yahoo.com.au','yahoo.ca',
+  'hotmail.com','hotmail.co.uk','hotmail.fr','hotmail.de','hotmail.es','hotmail.it',
+  'outlook.com','outlook.co.uk','outlook.fr','outlook.de','outlook.es','outlook.com.au',
+  'live.com','live.co.uk','live.fr','live.de','live.com.au','live.ca',
+  'msn.com','icloud.com','me.com','mac.com','aol.com','aol.co.uk',
+  'protonmail.com','protonmail.ch','proton.me',
+  'zoho.com','zohomail.com',
+  'yandex.com','yandex.ru','yandex.ua','yandex.by','yandex.kz',
+  'mail.com','email.com','gmx.com','gmx.net','gmx.de','gmx.at','gmx.ch',
+  'web.de','freenet.de','t-online.de',
+  'qq.com','163.com','126.com','sina.com','sina.cn','sohu.com',
+  'rediffmail.com','in.com','sify.com',
+  'rocketmail.com','ymail.com','rogers.com','shaw.ca','telus.net',
+  'bigpond.com','bigpond.net.au','optusnet.com.au','internode.on.net',
+  'ntlworld.com','btinternet.com','virgin.net','virginmedia.com','sky.com',
+  'orange.fr','wanadoo.fr','free.fr','sfr.fr','laposte.net','bbox.fr',
+  'libero.it','virgilio.it','tiscali.it','alice.it',
+  'terra.com.br','uol.com.br','bol.com.br','ig.com.br','globo.com','r7.com',
+  'seznam.cz','atlas.cz','centrum.cz',
+  'wp.pl','onet.pl','interia.pl','o2.pl',
+  'rambler.ru','inbox.ru','list.ru','bk.ru','mail.ru',
+  'tutanota.com','tutanota.de','tutamail.com','tuta.io',
+  'fastmail.com','fastmail.fm','fastmail.net','hushmail.com',
+  'lavabit.com','safe-mail.net','runbox.com',
+]);
+
+// ─── Expanded toxic/abusive domains ──────────────────────────────────────────
+const TOXIC_DOMAINS = new Set([
+  // Known spam/abuse domains
+  'spam.la','spamgourmet.com','spamgourmet.net','spamgourmet.org',
+  'spamherelots.com','spamhereplease.com','spamthisplease.com',
+  'spamoff.de','spamcannon.com','spamcannon.net',
+  'spaml.com','spaml.de','spamspot.com','spamstack.net',
+  'spamtrail.com','spamtroll.net','spamt.net',
+  // Toxic/abusive
+  'anonbox.net','anonymbox.com','anonymail.dk','anonymize.com',
+  'antichef.com','antichef.net','antireg.com','antispam.de',
+  'antispammail.de','armyspy.com','binkmail.com','bobmail.info',
+  'chammy.info','cheatmail.de','chewiemail.com','childsafemail.com',
+  'clrmail.com','cmail.net','cool.fr.nf','courriel.fr.nf',
+  'courrieltemporaire.com','crapmail.org','cust.in','dacoolest.com',
+  'dandikmail.com','dayrep.com','dcemail.com','deadaddress.com',
+  'deadletter.ga','delikkt.de','despam.it','devnullmail.com',
+  'digitalsanctuary.com','dingbone.com','disposablemail.us',
+  'dispostable.com','dm.w3internet.co.uk','dodgeit.com','dodgmail.de',
+  'dodsi.com','domforfb1.tk','domforfb18.tk','domforfb19.tk',
+  'domforfb2.tk','domforfb23.tk','domforfb27.tk','domforfb29.tk',
+  'domforfb3.tk','domforfb4.tk','domforfb5.tk','domforfb6.tk',
+  'domforfb7.tk','domforfb8.tk','dontreg.com','dontsendmespam.de',
+  'drdrb.com','drdrb.net','dump-email.info','dumpandfuck.com',
+  'dumpmail.de','dumpyemail.com','e4ward.com','easytrashmail.com',
+  'einrot.com','einrot.de','emailage.cf','emailage.ga','emailage.gq',
+  'emailage.ml','emailage.tk','emaildienst.de','emailgo.de',
+  'emailias.com','emailinfive.com','emailisvalid.com','emailmiser.com',
+  'emailproxsy.com','emailsensei.com','emailtemporanea.com',
+  'emailtemporanea.net','emailtemporar.ro','emailto.de','emailwarden.com',
+  'emailx.at.hm','emailxfer.com','emailz.cf','emailz.ga','emailz.gq',
+  'emailz.ml','emeil.in','emeil.ir','emz.net','enterto.com',
+  'ephemail.net','etranquil.com','etranquil.net','etranquil.org',
+  'evopo.com','explodemail.com','express.net.ua','eyepaste.com',
+  'fakeinformation.com','fansworldwide.de','fantasymail.de',
+  'fightallspam.com','filzmail.com','fivemail.de','fixmail.tk',
+  'fizmail.com','fleckens.hu','frapmail.com','freemail.ms',
+  'fuckingdumbass.com','fudgerub.com','fux0ringduh.com',
+  'garbagecollector.org','garbagemail.org','get-mail.cf',
+  'get-mail.ga','get-mail.ml','get-mail.tk','get1mail.com',
+  'getairmail.com','getairmail.cf','getairmail.ga','getairmail.gq',
+  'getairmail.ml','getairmail.tk','getmails.eu','getonemail.com',
+  'getonemail.net','gishpuppy.com','goemailgo.com','gotmail.net',
+  'gotmail.org','gowikibooks.com','gowikicampus.com','gowikicars.com',
+  'gowikifilms.com','gowikigames.com','gowikimusic.com',
+  'gowikinetwork.com','gowikitravel.com','gowikitv.com','grandmamail.com',
+  'grandmasmail.com','great-host.in','greensloth.com','gsrv.co.uk',
+  'gustr.com','h8s.org','haltospam.com','harakirimail.com',
+  'hartbot.de','hat-geld.de','hatespam.org','herp.in',
+  'hidemail.de','hidzz.com','hmamail.com','hopemail.biz',
+  'hulapla.de','ieatspam.eu','ieatspam.info','ieh-mail.de',
+  'ihateyoualot.info','iheartspam.org','imails.info','inbax.tk',
+  'inbox.si','inboxalias.com','inboxclean.com','inboxclean.org',
+  'inboxdesign.me','inboxed.pw','inboxstore.me','incognitomail.com',
+  'incognitomail.net','incognitomail.org','insorg.org','instant-mail.de',
+  'ip6.li','ipoo.org','irish2me.com','iwi.net',
+  'jetable.com','jetable.fr.nf','jetable.net','jetable.org',
+  'jnxjn.com','jourrapide.com','jsrsolutions.com','junk.to',
+  'jupimail.com','kasmail.com','kaspop.com','killmail.com',
+  'killmail.net','klassmaster.com','klzlk.com','koszmail.pl',
+  'kulturbetrieb.info','kurzepost.de','letthemeatspam.com',
+  'lhsdv.com','lifebyfood.com','link2mail.net','litedrop.com',
+  'lol.ovpn.to','lolfreak.net','lookugly.com','lortemail.dk',
+  'losemymail.com','lovemeleaveme.com','lr78.com','lroid.com',
+]);
+
 const ROLE_PREFIXES = new Set([
   'admin','info','support','contact','sales','marketing','noreply',
   'no-reply','postmaster','webmaster','abuse','root','help','hello',
@@ -128,6 +223,16 @@ function checkHeuristics(email) {
   const typo = COMMON_TYPOS[domain.toLowerCase()];
   if (typo) {
     flags.push({ type: 'typo', message: `Possible domain typo: "${domain}" → did you mean "${typo}"?` });
+  }
+
+  // Free email provider check
+  if (FREE_EMAIL_PROVIDERS.has(domain.toLowerCase())) {
+    flags.push({ type: 'free_provider', message: `Free email provider (${domain}) — not a business address` });
+  }
+
+  // Toxic domain check
+  if (TOXIC_DOMAINS.has(domain.toLowerCase())) {
+    flags.push({ type: 'toxic', message: `Toxic/abusive domain detected — high spam risk` });
   }
 
   return flags;
@@ -370,17 +475,30 @@ async function fullValidate(email, options = {}) {
   else if (result.checks.smtp.pass === null) score += 15;
   else if (result.checks.smtp.skipped)      score += 15;
 
-  const disposable = result.flags.find(f => f.type === 'disposable');
-  const typo      = result.flags.find(f => f.type === 'typo');
-  const catchAll  = result.flags.find(f => f.type === 'catch_all');
-  if (disposable) score = Math.max(0, score - 20);
-  if (typo)       score = Math.max(0, score - 10);
-  if (catchAll)   score = Math.max(0, score - 20);
+  const disposable    = result.flags.find(f => f.type === 'disposable');
+  const typo          = result.flags.find(f => f.type === 'typo');
+  const catchAll      = result.flags.find(f => f.type === 'catch_all');
+  const freeProvider  = result.flags.find(f => f.type === 'free_provider');
+  const toxic         = result.flags.find(f => f.type === 'toxic');
+  if (disposable)   score = Math.max(0, score - 20);
+  if (typo)         score = Math.max(0, score - 10);
+  if (catchAll)     score = Math.max(0, score - 20);
+  if (toxic)        score = Math.max(0, score - 30);
+  // free_provider doesn't reduce score — it's informational only
 
   result.score = score;
 
   // GHL safe-to-send verdict
   result.safe_to_send = false;
+
+  // Toxic domain = always invalid regardless of SMTP
+  if (toxic) {
+    result.status = 'invalid';
+    result.reason = 'Toxic/abusive domain — do not send';
+    result.safe_to_send = false;
+    result.duration_ms = Date.now() - start;
+    return result;
+  }
 
   if (result.checks.smtp.pass === false) {
     result.status = 'invalid';
@@ -431,7 +549,7 @@ async function fullValidate(email, options = {}) {
 
 // Health
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.1.0', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', version: '1.2.0', timestamp: new Date().toISOString() });
 });
 
 // Single email
