@@ -23,6 +23,31 @@
     --blue: #60a5fa;
     --glow: rgba(124,108,252,0.15);
   }
+  [data-theme="light"] {
+    --bg: #f5f5fa;
+    --surface: #ffffff;
+    --surface2: #f0f0f7;
+    --border: rgba(0,0,0,0.08);
+    --border2: rgba(0,0,0,0.14);
+    --text: #111118;
+    --muted: #888899;
+    --accent: #6c5ce7;
+    --accent2: #7c6cfc;
+    --green: #059669;
+    --red: #dc2626;
+    --amber: #d97706;
+    --blue: #2563eb;
+    --glow: rgba(108,92,231,0.1);
+  }
+  [data-theme="light"] body::before {
+    background-image:
+      linear-gradient(rgba(108,92,231,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(108,92,231,0.04) 1px, transparent 1px);
+  }
+  [data-theme="light"] .pill-pass { background: rgba(5,150,105,0.08); color: var(--green); border-color: rgba(5,150,105,0.2); }
+  [data-theme="light"] .pill-fail { background: rgba(220,38,38,0.08); color: var(--red); border-color: rgba(220,38,38,0.2); }
+  [data-theme="light"] .pill-warn { background: rgba(217,119,6,0.08); color: var(--amber); border-color: rgba(217,119,6,0.2); }
+  [data-theme="light"] .pill-skip { background: rgba(37,99,235,0.08); color: var(--blue); border-color: rgba(37,99,235,0.2); }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
   body {
@@ -470,6 +495,30 @@
   .health-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
   .health-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
+
+  /* Copy button */
+  .copy-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; padding: 4px 10px; border-radius: 6px;
+    border: 1px solid var(--border2); background: transparent;
+    color: var(--muted); cursor: pointer; font-family: 'DM Mono', monospace;
+    transition: all 0.15s; margin-top: 10px;
+  }
+  .copy-btn:hover { background: var(--surface2); color: var(--text); }
+  .copy-btn.copied { color: var(--green); border-color: rgba(52,211,153,0.3); }
+
+  /* History */
+  .history-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    font-size: 12px; cursor: pointer; transition: border-color 0.15s;
+  }
+  .history-row:hover { border-color: var(--border2); }
+  .history-email { flex: 1; font-family: 'DM Mono', monospace; color: var(--text); word-break: break-all; }
+  .history-time { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .history-score { font-size: 13px; font-weight: 700; }
+
   @media (max-width: 600px) {
     .summary-grid { grid-template-columns: repeat(3, 1fr); }
     .stat-divider { grid-column: span 3; }
@@ -481,16 +530,28 @@
 
 <div class="container">
   <header>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px;">
+      <button class="btn btn-ghost" style="height:32px;padding:0 12px;font-size:12px;" onclick="toggleHistory()" id="history-btn">📋 History</button>
+      <button class="btn btn-ghost" style="height:32px;padding:0 12px;font-size:16px;" onclick="toggleTheme()" id="theme-btn">☀️</button>
+    </div>
     <div class="badge">Live API Connected</div>
     <h1>Email Validator</h1>
     <p class="subtitle">Real-time format, MX, SMTP &amp; catch-all verification — prevent bounces across all ESPs</p>
   </header>
 
-  <!-- API Status -->
-  <div class="config-bar" style="justify-content:space-between;">
-    <span class="config-label">API_URL — <span style="color:var(--text);">https://email-validator-api-vt38.onrender.com</span></span>
-    <span class="config-status" id="api-status" style="color:var(--muted)">checking…</span>
+  <!-- History Panel -->
+  <div id="history-panel" style="display:none;margin-bottom:24px;">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <span style="font-size:15px;font-weight:700;">Validation History</span>
+        <button class="btn btn-ghost" style="height:28px;padding:0 10px;font-size:11px;color:var(--red);" onclick="clearHistory()">Clear all</button>
+      </div>
+      <div id="history-list" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;"></div>
+      <div id="history-empty" style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">No validation history yet</div>
+    </div>
   </div>
+
+
 
   <!-- Tabs -->
   <div class="tabs">
@@ -602,6 +663,99 @@
     }
   }
 
+
+  // ── Theme toggle ───────────────────────────────────────────────────────────
+  function toggleTheme() {
+    const html = document.documentElement;
+    const isLight = html.getAttribute('data-theme') === 'light';
+    html.setAttribute('data-theme', isLight ? 'dark' : 'light');
+    document.getElementById('theme-btn').textContent = isLight ? '☀️' : '🌙';
+    localStorage.setItem('ev-theme', isLight ? 'dark' : 'light');
+  }
+
+  // Load saved theme
+  (function() {
+    const saved = localStorage.getItem('ev-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+    setTimeout(() => {
+      const btn = document.getElementById('theme-btn');
+      if (btn) btn.textContent = saved === 'light' ? '🌙' : '☀️';
+    }, 0);
+  })();
+
+  // ── History ────────────────────────────────────────────────────────────────
+  let validationHistory = JSON.parse(localStorage.getItem('ev-history') || '[]');
+
+  function addToHistory(data) {
+    const entry = {
+      email: data.email,
+      status: data.status,
+      score: data.score,
+      reason: data.reason,
+      safe_to_send: data.safe_to_send,
+      time: new Date().toISOString(),
+    };
+    validationHistory.unshift(entry);
+    if (validationHistory.length > 50) validationHistory = validationHistory.slice(0, 50);
+    localStorage.setItem('ev-history', JSON.stringify(validationHistory));
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('history-list');
+    const empty = document.getElementById('history-empty');
+    if (!validationHistory.length) {
+      list.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    const icons = { valid:'✅', invalid:'❌', risky:'⚠️', unknown:'🔍' };
+    const colors = { valid:'var(--green)', invalid:'var(--red)', risky:'var(--amber)', unknown:'var(--blue)' };
+    list.innerHTML = validationHistory.map((e, i) => {
+      const t = new Date(e.time);
+      const timeStr = t.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+      return `<div class="history-row" onclick="reuseHistory(${i})">
+        <span>${icons[e.status]||'🔍'}</span>
+        <span class="history-email">${esc(e.email)}</span>
+        <span class="history-score" style="color:${colors[e.status]}">${e.score}</span>
+        <span class="history-time">${timeStr}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function reuseHistory(i) {
+    const e = validationHistory[i];
+    document.getElementById('single-email').value = e.email;
+    switchTab('single', document.querySelectorAll('.tab')[0]);
+    toggleHistory();
+  }
+
+  function clearHistory() {
+    validationHistory = [];
+    localStorage.removeItem('ev-history');
+    renderHistory();
+  }
+
+  function toggleHistory() {
+    const panel = document.getElementById('history-panel');
+    const isVisible = panel.style.display !== 'none';
+    panel.style.display = isVisible ? 'none' : 'block';
+    document.getElementById('history-btn').textContent = isVisible ? '📋 History' : '✕ Close';
+    if (!isVisible) renderHistory();
+  }
+
+  // ── Copy result ────────────────────────────────────────────────────────────
+  function copyResult(email, status, score) {
+    const icons = { valid:'✅', invalid:'❌', risky:'⚠️', unknown:'🔍' };
+    const text = `${icons[status]||''} ${email} — ${status.toUpperCase()} (Score: ${score}/100)`;
+    navigator.clipboard.writeText(text).then(() => {
+      const btns = document.querySelectorAll('.copy-btn');
+      btns.forEach(b => { b.textContent = '✓ Copied!'; b.classList.add('copied'); });
+      setTimeout(() => btns.forEach(b => { b.textContent = '📋 Copy result'; b.classList.remove('copied'); }), 2000);
+    });
+  }
+
   // ── Single ─────────────────────────────────────────────────────────────────
   async function verifySingle() {
     const email = document.getElementById('single-email').value.trim();
@@ -621,6 +775,7 @@
       });
       const data = await res.json();
       box.innerHTML = renderSingle(data);
+      addToHistory(data);
     } catch (e) {
       box.innerHTML = `<div class="error-box">⚠ Could not reach API — make sure the server is running and the URL above is correct.<br><small>${e.message}</small></div>`;
     } finally {
@@ -693,6 +848,7 @@
         <div class="score-label">Confidence score: ${d.score}/100 · ${d.duration_ms}ms</div>
         <div class="score-track"><div class="score-fill ${scoreClass}" style="width:${d.score}%"></div></div>
       </div>
+      <button class="copy-btn" onclick="copyResult('${esc(d.email)}','${d.status}',${d.score})">📋 Copy result</button>
     </div>`;
   }
 
