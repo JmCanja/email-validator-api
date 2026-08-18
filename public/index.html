@@ -519,6 +519,34 @@
   .history-time { color: var(--muted); font-size: 11px; white-space: nowrap; }
   .history-score { font-size: 13px; font-weight: 700; }
 
+
+  /* Progress bar */
+  .progress-wrap {
+    margin-top: 16px;
+    animation: fadeUp 0.2s ease;
+  }
+  .progress-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+  }
+  .progress-label { font-size: 13px; color: var(--text); font-weight: 600; }
+  .progress-count { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .progress-track {
+    height: 6px; background: var(--border);
+    border-radius: 6px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; border-radius: 6px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.3s ease;
+  }
+  .progress-email {
+    font-size: 11px; color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    margin-top: 6px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+
   @media (max-width: 600px) {
     .summary-grid { grid-template-columns: repeat(3, 1fr); }
     .stat-divider { grid-column: span 3; }
@@ -628,7 +656,7 @@
         </label>
         <span>Remove duplicate emails before validating</span>
       </div>
-      <p class="hint">Max 100 emails per request · CSV, Excel, or paste directly</p>
+      <p class="hint">Max 500 emails (SMTP off) · 50 emails (SMTP on) · CSV, Excel, or paste directly</p>
     </div>
     <div id="bulk-result"></div>
   </div>
@@ -980,6 +1008,22 @@
     console.log(`Loaded ${count} emails from file`);
   }
 
+
+  function renderProgress(done, total, currentEmail) {
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const left = total - done;
+    return `<div class="progress-wrap">
+      <div class="progress-header">
+        <span class="progress-label">${done === 0 ? 'Starting verification…' : done === total ? 'Done!' : 'Verifying emails…'}</span>
+        <span class="progress-count">${done} / ${total} · ${left} left</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" style="width:${pct}%"></div>
+      </div>
+      ${currentEmail ? `<div class="progress-email">Checking: ${esc(currentEmail)}</div>` : ''}
+    </div>`;
+  }
+
   // ── Bulk ───────────────────────────────────────────────────────────────────
   let bulkData = [];
   let activeFilter = 'all';
@@ -1010,21 +1054,49 @@
       if (removed > 0) dedupInfo = { original, removed, after: emails.length };
     }
 
-    if (emails.length > 100) { alert('Max 100 emails per request (after deduplication).'); return; }
+    const maxEmails = smtp ? 50 : 500;
+    if (emails.length > maxEmails) { alert(`Max ${maxEmails} emails per request${smtp ? ' with SMTP on (turn SMTP off for up to 500)' : ''}.`); return; }
 
     btn.disabled = true;
     box.innerHTML = `<div class="loading"><div class="spinner"></div>Validating ${emails.length} email${emails.length > 1 ? 's' : ''}${dedupInfo ? ` (${dedupInfo.removed} duplicate${dedupInfo.removed>1?'s':''} removed)` : ''}…</div>`;
 
+    // Show initial progress
+    box.innerHTML = renderProgress(0, emails.length, '');
+
     try {
-      const res = await fetch(getAPI() + '/api/validate/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emails, smtp_check: smtp })
-      });
-      const data = await res.json();
-      bulkData = data.results || [];
+      const BATCH = smtp ? 5 : 20;
+      const results = [];
+
+      for (let i = 0; i < emails.length; i += BATCH) {
+        const batch = emails.slice(i, i + BATCH);
+        const done = Math.min(i + BATCH, emails.length);
+
+        // Update progress
+        box.innerHTML = renderProgress(i, emails.length, batch[0]);
+
+        const res = await fetch(getAPI() + '/api/validate/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emails: batch, smtp_check: smtp })
+        });
+        const data = await res.json();
+        results.push(...(data.results || []));
+
+        // Update progress after batch
+        box.innerHTML = renderProgress(done, emails.length, batch[batch.length - 1]);
+      }
+
+      bulkData = results;
       activeFilter = 'all';
-      renderBulk(data);
+
+      const summary = {
+        total: results.length,
+        valid:   results.filter(r => r.status === 'valid').length,
+        invalid: results.filter(r => r.status === 'invalid').length,
+        risky:   results.filter(r => r.status === 'risky').length,
+        unknown: results.filter(r => r.status === 'unknown').length,
+      };
+      renderBulk({ summary, results });
     } catch (e) {
       box.innerHTML = `<div class="error-box">⚠ Could not reach API — ${e.message}</div>`;
     } finally {

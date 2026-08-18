@@ -598,7 +598,7 @@ async function fullValidate(email, options = {}) {
 
 // Health
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.4.0', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', version: '1.5.0', timestamp: new Date().toISOString() });
 });
 
 // Single email
@@ -643,8 +643,8 @@ app.post('/api/validate/bulk', bulkLimiter, async (req, res) => {
   if (emails.length === 0) {
     return res.status(400).json({ error: 'Empty emails array' });
   }
-  if (emails.length > 100) {
-    return res.status(400).json({ error: 'Maximum 100 emails per bulk request' });
+  if (emails.length > 500) {
+    return res.status(400).json({ error: 'Maximum 500 emails per bulk request' });
   }
 
   const invalid = emails.filter(e => typeof e !== 'string' || e.length > 320);
