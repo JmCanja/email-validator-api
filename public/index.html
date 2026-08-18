@@ -562,7 +562,10 @@
       <button class="btn btn-ghost" style="height:32px;padding:0 12px;font-size:12px;" onclick="toggleHistory()" id="history-btn">📋 History</button>
       <button class="btn btn-ghost" style="height:32px;padding:0 12px;font-size:16px;" onclick="toggleTheme()" id="theme-btn">☀️</button>
     </div>
-    <div class="badge">Live API Connected</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+      <div class="badge">Live API Connected</div>
+      <div class="badge" id="credits-badge" style="cursor:pointer;" onclick="fetchCredits()">🔄 Check SMTP credits</div>
+    </div>
     <h1>Email Validator</h1>
     <p class="subtitle">Real-time format, MX, SMTP &amp; catch-all verification — prevent bounces across all ESPs</p>
   </header>
@@ -691,6 +694,34 @@
     }
   }
 
+
+
+  // ── Mailboxlayer credits ───────────────────────────────────────────────────
+  async function fetchCredits() {
+    const badge = document.getElementById('credits-badge');
+    badge.textContent = '⏳ Checking…';
+    try {
+      const res = await fetch(getAPI() + '/api/credits');
+      const data = await res.json();
+      if (data.requests_remaining !== undefined) {
+        const left = data.requests_remaining;
+        const used = data.requests_made;
+        const total = data.monthly_limit;
+        const pct = Math.round((left / total) * 100);
+        const color = pct > 50 ? 'var(--green)' : pct > 20 ? 'var(--amber)' : 'var(--red)';
+        badge.innerHTML = `<span style="color:${color}">⚡ ${left.toLocaleString()} SMTP credits left</span> <span style="color:var(--muted);font-size:10px;">(${used} used / ${total} total)</span>`;
+      } else {
+        badge.textContent = '⚠ Could not fetch credits';
+      }
+    } catch (e) {
+      badge.textContent = '⚠ Credits check failed';
+    }
+  }
+
+  // Auto-fetch credits on load
+  window.addEventListener('load', () => {
+    setTimeout(fetchCredits, 1500);
+  });
 
   // ── Theme toggle ───────────────────────────────────────────────────────────
   function toggleTheme() {

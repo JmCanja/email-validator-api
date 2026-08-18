@@ -598,7 +598,7 @@ async function fullValidate(email, options = {}) {
 
 // Health
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.5.0', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', version: '1.5.1', timestamp: new Date().toISOString() });
 });
 
 // Single email
@@ -678,6 +678,23 @@ app.post('/api/validate/bulk', bulkLimiter, async (req, res) => {
   }
 });
 
+
+
+// ─── Mailboxlayer credits ─────────────────────────────────────────────────────
+app.get('/api/credits', async (req, res) => {
+  try {
+    const url = `https://apilayer.net/api/check?access_key=${MAILBOXLAYER_KEY}&email=test@gmail.com&smtp=0&format=1`;
+    const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const data = await response.json();
+    res.json({
+      requests_made: data.requests_made || 0,
+      requests_remaining: data.requests_remaining || 0,
+      monthly_limit: (data.requests_made || 0) + (data.requests_remaining || 0),
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Could not fetch credits: ' + e.message });
+  }
+});
 
 // ─── Debug: test Mailboxlayer connectivity ────────────────────────────────────
 app.get('/api/test-mailboxlayer', async (req, res) => {
