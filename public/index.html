@@ -507,10 +507,10 @@
       </div>
       <div class="toggle-row">
         <label class="toggle">
-          <input type="checkbox" id="single-smtp" checked/>
+          <input type="checkbox" id="single-smtp"/>
           <span class="slider"></span>
         </label>
-        <span>SMTP probe (slower but checks if mailbox exists)</span>
+        <span>SMTP probe <span style="color:var(--amber);font-size:11px;">(may timeout on free hosting)</span></span>
       </div>
     </div>
     <div id="single-result"></div>
@@ -558,7 +558,7 @@
           <input type="checkbox" id="bulk-smtp"/>
           <span class="slider"></span>
         </label>
-        <span>SMTP probe (recommended off for large lists)</span>
+        <span>SMTP probe <span style="color:var(--amber);font-size:11px;">(disabled — port 25 blocked on free hosting)</span></span>
       </div>
       <div class="toggle-row" style="margin-top:8px;">
         <label class="toggle">
@@ -909,10 +909,12 @@
       </div>`;
     }).join('');
 
-    const notValid = s.invalid + s.risky + s.unknown;
+    const notValid = s.invalid + s.risky; // unknown excluded — inconclusive, not invalid
 
     // ── List health score ──────────────────────────────────────────────────
-    const healthPct = s.total > 0 ? Math.round((s.valid / s.total) * 100) : 0;
+    // Unknown = inconclusive, not invalid — exclude from health calc denominator
+    const knownTotal = s.total - s.unknown;
+    const healthPct = knownTotal > 0 ? Math.round((s.valid / knownTotal) * 100) : s.total > 0 ? 50 : 0;
     const healthColor = healthPct >= 80 ? 'var(--green)' : healthPct >= 50 ? 'var(--amber)' : 'var(--red)';
     const healthLabel = healthPct >= 80 ? '🟢 Healthy list' : healthPct >= 50 ? '🟡 Needs cleaning' : '🔴 Poor list quality';
     const healthDesc = healthPct >= 80
@@ -975,7 +977,7 @@
         </div>
         <div class="stat">
           <div class="stat-val" style="color:var(--red)">${notValid}</div>
-          <div class="stat-lbl">✗ Not Valid</div>
+          <div class="stat-lbl">✗ Invalid</div>
         </div>
         <div class="stat">
           <div class="stat-val" style="color:var(--amber)">${s.risky}</div>
