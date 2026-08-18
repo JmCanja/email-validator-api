@@ -386,6 +386,51 @@
 
   .divider { height: 1px; background: var(--border); margin: 16px 0; }
 
+
+  /* Drag & drop upload */
+  .upload-tabs { display: flex; gap: 0; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .upload-tab { padding: 8px 18px; font-size: 13px; font-weight: 600; color: var(--muted); background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-family: 'Syne', sans-serif; transition: all 0.15s; margin-bottom: -1px; }
+  .upload-tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+  .upload-tab:hover:not(.active) { color: var(--text); }
+
+  .drop-zone {
+    border: 2px dashed var(--border2);
+    border-radius: 12px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface2);
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(124,108,252,0.05);
+    box-shadow: 0 0 0 3px rgba(124,108,252,0.1);
+  }
+  .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .drop-icon { font-size: 32px; margin-bottom: 10px; }
+  .drop-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .drop-sub { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .drop-zone.has-file { border-color: var(--green); background: rgba(52,211,153,0.05); }
+  .drop-zone.has-file .drop-icon::after { content: ' ✓'; color: var(--green); }
+
+  .col-mapper {
+    margin-top: 14px; padding: 14px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; display: none;
+  }
+  .col-mapper.visible { display: block; }
+  .col-mapper-label { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; margin-bottom: 8px; }
+  .col-mapper select {
+    width: 100%; padding: 8px 12px;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 7px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 13px;
+    outline: none; cursor: pointer;
+  }
+  .col-preview { margin-top: 8px; font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
   @media (max-width: 600px) {
     .summary-grid { grid-template-columns: repeat(3, 1fr); }
     .stat-divider { grid-column: span 3; }
@@ -435,10 +480,37 @@
   <!-- Bulk panel -->
   <div id="panel-bulk" style="display:none;">
     <div class="card">
-      <div class="input-wrap">
-        <textarea id="bulk-emails" placeholder="Paste emails here — one per line, or comma/semicolon separated&#10;&#10;alice@example.com&#10;bob@domain.org, carol@test.io&#10;invalid-email"></textarea>
+      <!-- Input mode tabs -->
+      <div class="upload-tabs">
+        <button class="upload-tab active" onclick="switchInputMode('paste', this)">✏ Paste emails</button>
+        <button class="upload-tab" onclick="switchInputMode('upload', this)">📂 Upload file</button>
       </div>
-      <div class="btn-row">
+
+      <!-- Paste mode -->
+      <div id="input-paste">
+        <div class="input-wrap">
+          <textarea id="bulk-emails" placeholder="Paste emails here — one per line, or comma/semicolon separated&#10;&#10;alice@example.com&#10;bob@domain.org, carol@test.io&#10;invalid-email"></textarea>
+        </div>
+      </div>
+
+      <!-- Upload mode -->
+      <div id="input-upload" style="display:none;">
+        <div class="drop-zone" id="drop-zone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+          <input type="file" id="file-input" accept=".csv,.xlsx,.xls,.txt" onchange="handleFileSelect(event)"/>
+          <div class="drop-icon">📁</div>
+          <div class="drop-title">Drag & drop your file here</div>
+          <div class="drop-sub">Supports CSV, Excel (.xlsx, .xls), TXT · click to browse</div>
+        </div>
+
+        <!-- Column mapper (shows after file loaded) -->
+        <div class="col-mapper" id="col-mapper">
+          <div class="col-mapper-label">Select the column that contains email addresses:</div>
+          <select id="col-select" onchange="updateColPreview()"></select>
+          <div class="col-preview" id="col-preview"></div>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:14px;">
         <button class="btn" id="bulk-btn" onclick="verifyBulk()">Verify All →</button>
         <button class="btn btn-ghost" onclick="clearBulk()">Clear</button>
       </div>
@@ -456,7 +528,7 @@
         </label>
         <span>Remove duplicate emails before validating</span>
       </div>
-      <p class="hint">Max 100 emails per request · one-per-line, comma, or semicolon separated</p>
+      <p class="hint">Max 100 emails per request · CSV, Excel, or paste directly</p>
     </div>
     <div id="bulk-result"></div>
   </div>
@@ -589,19 +661,149 @@
     return `<span class="check-pill pill-${type}">${label}</span>`;
   }
 
+
+  // ── Input mode ─────────────────────────────────────────────────────────────
+  let currentInputMode = 'paste';
+  let parsedFileEmails = [];
+  let fileData = []; // raw rows from file
+
+  function switchInputMode(mode, el) {
+    currentInputMode = mode;
+    document.querySelectorAll('.upload-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('input-paste').style.display = mode === 'paste' ? '' : 'none';
+    document.getElementById('input-upload').style.display = mode === 'upload' ? '' : 'none';
+  }
+
+  // ── Drag & Drop ────────────────────────────────────────────────────────────
+  function handleDragOver(e) {
+    e.preventDefault();
+    document.getElementById('drop-zone').classList.add('drag-over');
+  }
+
+  function handleDragLeave(e) {
+    document.getElementById('drop-zone').classList.remove('drag-over');
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('drop-zone').classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  }
+
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) processFile(file);
+  }
+
+  function processFile(file) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const dz = document.getElementById('drop-zone');
+    dz.querySelector('.drop-title').textContent = file.name;
+    dz.querySelector('.drop-sub').textContent = `${(file.size / 1024).toFixed(1)} KB · ${ext.toUpperCase()}`;
+    dz.classList.add('has-file');
+
+    if (ext === 'csv' || ext === 'txt') {
+      const reader = new FileReader();
+      reader.onload = (e) => parseCSV(e.target.result, file.name);
+      reader.readAsText(file);
+    } else if (ext === 'xlsx' || ext === 'xls') {
+      const reader = new FileReader();
+      reader.onload = (e) => parseExcel(e.target.result);
+      reader.readAsArrayBuffer(file);
+    } else {
+      alert('Unsupported file type. Please use CSV, Excel (.xlsx/.xls), or TXT.');
+    }
+  }
+
+  function parseCSV(text, filename) {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (!lines.length) return;
+    // Detect delimiter
+    const delimiters = [',', ';', '\t', '|'];
+    let delim = ',';
+    let maxCols = 0;
+    for (const d of delimiters) {
+      const cols = lines[0].split(d).length;
+      if (cols > maxCols) { maxCols = cols; delim = d; }
+    }
+    if (maxCols === 1) {
+      // Single column — treat as plain email list
+      parsedFileEmails = lines.map(l => l.trim().replace(/^["']|["']$/g, ''));
+      hideColMapper();
+      showFileStats(parsedFileEmails.length);
+      return;
+    }
+    // Multi-column — show mapper
+    const headers = lines[0].split(delim).map(h => h.trim().replace(/^["']|["']$/g, ''));
+    fileData = lines.slice(1).map(l => l.split(delim).map(c => c.trim().replace(/^["']|["']$/g, '')));
+    showColMapper(headers, fileData);
+  }
+
+  function parseExcel(buffer) {
+    const wb = XLSX.read(buffer, { type: 'arraybuffer' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    if (!rows.length) return;
+    if (rows[0].length === 1) {
+      parsedFileEmails = rows.map(r => String(r[0] || '').trim()).filter(Boolean);
+      hideColMapper();
+      showFileStats(parsedFileEmails.length);
+      return;
+    }
+    const headers = rows[0].map(h => String(h || '').trim());
+    fileData = rows.slice(1).map(r => r.map(c => String(c || '').trim()));
+    showColMapper(headers, fileData);
+  }
+
+  function showColMapper(headers, rows) {
+    const mapper = document.getElementById('col-mapper');
+    const select = document.getElementById('col-select');
+    mapper.classList.add('visible');
+    select.innerHTML = headers.map((h, i) => `<option value="${i}">${h || 'Column ' + (i+1)}</option>`).join('');
+    // Auto-select column with "email" in header
+    const emailCol = headers.findIndex(h => /email/i.test(h));
+    if (emailCol >= 0) select.value = emailCol;
+    updateColPreview();
+  }
+
+  function hideColMapper() {
+    document.getElementById('col-mapper').classList.remove('visible');
+  }
+
+  function updateColPreview() {
+    const colIdx = parseInt(document.getElementById('col-select').value);
+    const preview = fileData.slice(0, 3).map(r => r[colIdx] || '—').join(', ');
+    const total = fileData.length;
+    document.getElementById('col-preview').textContent = `Preview: ${preview} … (${total} rows total)`;
+    parsedFileEmails = fileData.map(r => r[colIdx] || '').filter(Boolean);
+  }
+
+  function showFileStats(count) {
+    document.getElementById('col-preview') && (document.getElementById('col-preview').textContent = '');
+    console.log(`Loaded ${count} emails from file`);
+  }
+
   // ── Bulk ───────────────────────────────────────────────────────────────────
   let bulkData = [];
   let activeFilter = 'all';
   let dedupInfo = null;
 
   async function verifyBulk() {
-    const raw = document.getElementById('bulk-emails').value;
     const smtp = document.getElementById('bulk-smtp').checked;
     const dedup = document.getElementById('bulk-dedup').checked;
     const box = document.getElementById('bulk-result');
     const btn = document.getElementById('bulk-btn');
 
-    let emails = raw.split(/[\n,;]+/).map(e => e.trim().toLowerCase()).filter(e => e.length > 0);
+    let emails = [];
+    if (currentInputMode === 'upload') {
+      if (!parsedFileEmails.length) { alert('Please upload a file first.'); return; }
+      emails = parsedFileEmails.map(e => String(e).trim().toLowerCase()).filter(e => e.length > 0);
+    } else {
+      const raw = document.getElementById('bulk-emails').value;
+      emails = raw.split(/[\n,;]+/).map(e => e.trim().toLowerCase()).filter(e => e.length > 0);
+    }
     if (!emails.length) return;
 
     // Deduplication
@@ -730,6 +932,13 @@
     document.getElementById('bulk-emails').value = '';
     document.getElementById('bulk-result').innerHTML = '';
     bulkData = []; dedupInfo = null;
+    parsedFileEmails = []; fileData = [];
+    const dz = document.getElementById('drop-zone');
+    dz.classList.remove('has-file', 'drag-over');
+    dz.querySelector('.drop-title').textContent = 'Drag & drop your file here';
+    dz.querySelector('.drop-sub').textContent = 'Supports CSV, Excel (.xlsx, .xls), TXT · click to browse';
+    document.getElementById('col-mapper').classList.remove('visible');
+    document.getElementById('file-input').value = '';
   }
 
   function getFilteredRows(filter) {
