@@ -546,7 +546,7 @@
       ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);color:var(--green);font-size:13px;font-weight:600;margin-bottom:12px;">✅ Safe to send</div>`
       : d.safe_to_send === false && d.status !== 'unknown'
       ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);color:var(--red);font-size:13px;font-weight:600;margin-bottom:12px;">❌ Do not send — risk of bounce</div>`
-      : `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);color:var(--amber);font-size:13px;font-weight:600;margin-bottom:12px;">⚠ Uncertain — use with caution in any ESP</div>`;
+      : `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);color:var(--amber);font-size:13px;font-weight:600;margin-bottom:12px;">⚠ Uncertain — use with caution in GHL</div>`;
 
     const flagsHtml = d.flags && d.flags.length
       ? `<div class="flags-list">${d.flags.map(f=>`<div class="flag-item">⚑ ${esc(f.message)}</div>`).join('')}</div><div class="divider"></div>`
@@ -822,4 +822,3 @@
 </script>
 </body>
 </html>
-
