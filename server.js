@@ -360,8 +360,21 @@ const MAILBOXLAYER_KEY = process.env.MAILBOXLAYER_KEY || '206c6b33b2e7c3fa4d5886
 
 function mailboxlayerCheck(email) {
   return new Promise((resolve) => {
-    const url = `https://apilayer.net/api/check?access_key=${MAILBOXLAYER_KEY}&email=${encodeURIComponent(email)}&smtp=1&format=1`;
-    https.get(url, (res) => {
+    const urlObj = new URL(`https://apilayer.net/api/check`);
+    urlObj.searchParams.set('access_key', MAILBOXLAYER_KEY);
+    urlObj.searchParams.set('email', email);
+    urlObj.searchParams.set('smtp', '1');
+    urlObj.searchParams.set('format', '1');
+
+    const options = {
+      hostname: 'apilayer.net',
+      path: `/api/check?access_key=${MAILBOXLAYER_KEY}&email=${encodeURIComponent(email)}&smtp=1&format=1`,
+      method: 'GET',
+      timeout: 15000,
+      headers: { 'User-Agent': 'EmailValidator/1.3.0' }
+    };
+
+    const req = https.request(options, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
@@ -382,12 +395,21 @@ function mailboxlayerCheck(email) {
             did_you_mean: result.did_you_mean || null,
           });
         } catch (e) {
-          resolve({ success: false, error: 'Failed to parse Mailboxlayer response' });
+          resolve({ success: false, error: 'Failed to parse Mailboxlayer response: ' + e.message });
         }
       });
-    }).on('error', (e) => {
-      resolve({ success: false, error: e.message });
     });
+
+    req.on('error', (e) => {
+      resolve({ success: false, error: 'Mailboxlayer request error: ' + e.message });
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ success: false, error: 'Mailboxlayer request timed out' });
+    });
+
+    req.end();
   });
 }
 
@@ -587,7 +609,7 @@ async function fullValidate(email, options = {}) {
 
 // Health
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.3.0', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', version: '1.3.1', timestamp: new Date().toISOString() });
 });
 
 // Single email
