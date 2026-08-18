@@ -3,7 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const dns = require('dns');
-const https = require('https');
+const https = require('https'); // used for smtpProbe fallback
 const net = require('net');
 
 const app = express();
@@ -359,58 +359,29 @@ function smtpProbe(mxHost, email) {
 const MAILBOXLAYER_KEY = process.env.MAILBOXLAYER_KEY || '206c6b33b2e7c3fa4d588640922866b8';
 
 function mailboxlayerCheck(email) {
-  return new Promise((resolve) => {
-    const urlObj = new URL(`https://apilayer.net/api/check`);
-    urlObj.searchParams.set('access_key', MAILBOXLAYER_KEY);
-    urlObj.searchParams.set('email', email);
-    urlObj.searchParams.set('smtp', '1');
-    urlObj.searchParams.set('format', '1');
-
-    const options = {
-      hostname: 'apilayer.net',
-      path: `/api/check?access_key=${MAILBOXLAYER_KEY}&email=${encodeURIComponent(email)}&smtp=1&format=1`,
-      method: 'GET',
-      timeout: 15000,
-      headers: { 'User-Agent': 'EmailValidator/1.3.0' }
+  const url = `https://apilayer.net/api/check?access_key=${MAILBOXLAYER_KEY}&email=${encodeURIComponent(email)}&smtp=1&format=1`;
+  return fetch(url, {
+    method: 'GET',
+    headers: { 'User-Agent': 'EmailValidator/1.3.1' },
+    signal: AbortSignal.timeout(15000),
+  })
+  .then(res => res.json())
+  .then(result => {
+    if (result.error) {
+      return { success: false, error: result.error.info || 'Mailboxlayer error' };
+    }
+    return {
+      success: true,
+      deliverable: result.smtp_check === true,
+      disposable: result.disposable,
+      free:        result.free,
+      formatValid: result.format_valid,
+      mxFound:     result.mx_found,
+      score:       result.score,
+      did_you_mean: result.did_you_mean || null,
     };
-
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const result = JSON.parse(data);
-          if (result.error) {
-            resolve({ success: false, error: result.error.info || 'Mailboxlayer error' });
-            return;
-          }
-          resolve({
-            success: true,
-            deliverable: result.smtp_check === true,
-            disposable: result.disposable,
-            free:        result.free,
-            formatValid: result.format_valid,
-            mxFound:     result.mx_found,
-            score:       result.score,
-            did_you_mean: result.did_you_mean || null,
-          });
-        } catch (e) {
-          resolve({ success: false, error: 'Failed to parse Mailboxlayer response: ' + e.message });
-        }
-      });
-    });
-
-    req.on('error', (e) => {
-      resolve({ success: false, error: 'Mailboxlayer request error: ' + e.message });
-    });
-
-    req.on('timeout', () => {
-      req.destroy();
-      resolve({ success: false, error: 'Mailboxlayer request timed out' });
-    });
-
-    req.end();
-  });
+  })
+  .catch(e => ({ success: false, error: 'Mailboxlayer fetch error: ' + e.message }));
 }
 
 // ─── Catch-all detection ──────────────────────────────────────────────────────
@@ -609,7 +580,7 @@ async function fullValidate(email, options = {}) {
 
 // Health
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.3.1', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', version: '1.3.2', timestamp: new Date().toISOString() });
 });
 
 // Single email
