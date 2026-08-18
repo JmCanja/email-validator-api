@@ -1155,9 +1155,9 @@
         ? `<span class="bulk-badge" style="background:rgba(251,191,36,0.1);color:var(--amber);">catch-all</span>`
         : '';
       const safeBadge = r.safe_to_send === true
-        ? `<span class="bulk-badge" style="background:rgba(52,211,153,0.1);color:var(--green);">✓ GHL safe</span>`
+        ? `<span class="bulk-badge" style="background:rgba(52,211,153,0.1);color:var(--green);">✓ Safe to send</span>`
         : r.status === 'valid' || r.status === 'risky'
-        ? `<span class="bulk-badge" style="background:rgba(248,113,113,0.1);color:var(--red);">⚠ GHL risk</span>`
+        ? `<span class="bulk-badge" style="background:rgba(248,113,113,0.1);color:var(--red);">⚠ Risk</span>`
         : '';
       return `<div class="bulk-row">
         <span class="bulk-icon">${icons[r.status] || '🔍'}</span>
@@ -1382,3 +1382,4 @@
 </script>
 </body>
 </html>
+
