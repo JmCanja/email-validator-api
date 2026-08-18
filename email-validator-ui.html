@@ -399,15 +399,13 @@
   <header>
     <div class="badge">Live API Connected</div>
     <h1>Email Validator</h1>
-    <p class="subtitle">Real-time format, MX, SMTP &amp; catch-all verification — GHL bounce prevention</p>
+    <p class="subtitle">Real-time format, MX, SMTP &amp; catch-all verification — prevent bounces across all ESPs</p>
   </header>
 
-  <!-- API Config -->
-  <div class="config-bar">
-    <span class="config-label">API_URL</span>
-    <input class="config-input" id="api-url" value="https://email-validator-api-production-554b.up.railway.app" placeholder="https://your-api.railway.app"/>
-    <span class="config-status" id="api-status" style="color:var(--muted)">not tested</span>
-    <button class="btn" style="height:32px;padding:0 14px;font-size:12px;" onclick="testConnection()">Test</button>
+  <!-- API Status -->
+  <div class="config-bar" style="justify-content:space-between;">
+    <span class="config-label">API_URL — <span style="color:var(--text);">https://email-validator-api-vt38.onrender.com</span></span>
+    <span class="config-status" id="api-status" style="color:var(--muted)">checking…</span>
   </div>
 
   <!-- Tabs -->
@@ -466,10 +464,10 @@
 </div>
 
 <script>
-  const API_DEFAULT = 'https://email-validator-api-production-554b.up.railway.app';
+  const API_DEFAULT = 'https://email-validator-api-vt38.onrender.com';
 
   function getAPI() {
-    return (document.getElementById('api-url').value || API_DEFAULT).replace(/\/$/, '');
+    return API_DEFAULT;
   }
 
   function switchTab(name, el) {
@@ -545,9 +543,9 @@
     }
 
     const safeToSend = d.safe_to_send === true
-      ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);color:var(--green);font-size:13px;font-weight:600;margin-bottom:12px;">✅ Safe to send in GHL</div>`
+      ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);color:var(--green);font-size:13px;font-weight:600;margin-bottom:12px;">✅ Safe to send</div>`
       : d.safe_to_send === false && d.status !== 'unknown'
-      ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);color:var(--red);font-size:13px;font-weight:600;margin-bottom:12px;">❌ Do not send — risk of bounce in GHL</div>`
+      ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);color:var(--red);font-size:13px;font-weight:600;margin-bottom:12px;">❌ Do not send — risk of bounce</div>`
       : `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);color:var(--amber);font-size:13px;font-weight:600;margin-bottom:12px;">⚠ Uncertain — use with caution in GHL</div>`;
 
     const flagsHtml = d.flags && d.flags.length

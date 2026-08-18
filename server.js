@@ -350,7 +350,7 @@ async function fullValidate(email, options = {}) {
           ? 'Catch-all domain — server accepts all addresses, mailbox existence unverifiable'
           : 'Not catch-all — server rejects unknown addresses';
         if (catchAll) {
-          result.flags.push({ type: 'catch_all', message: 'Catch-all domain detected — may cause bounces in GHL' });
+          result.flags.push({ type: 'catch_all', message: 'Catch-all domain detected — may cause bounces in any ESP' });
         }
       } catch (e) {
         result.checks.catch_all.skipped = true;
@@ -389,7 +389,7 @@ async function fullValidate(email, options = {}) {
   } else if (result.checks.smtp.pass === true) {
     if (catchAll) {
       result.status = 'risky';
-      result.reason = 'Catch-all domain — cannot confirm mailbox exists, risk of bounce in GHL';
+      result.reason = 'Catch-all domain — cannot confirm mailbox exists, risk of bounce in any ESP';
       result.safe_to_send = false;
     } else if (disposable) {
       result.status = 'risky';
@@ -397,14 +397,14 @@ async function fullValidate(email, options = {}) {
       result.safe_to_send = false;
     } else {
       result.status = 'valid';
-      result.reason = 'Mailbox verified — safe to send in GHL';
+      result.reason = 'Mailbox verified — safe to send';
       result.safe_to_send = true;
     }
   } else {
     // SMTP inconclusive
     if (catchAll) {
       result.status = 'risky';
-      result.reason = 'Catch-all domain — may cause bounces in GHL';
+      result.reason = 'Catch-all domain — may cause bounces in any ESP';
       result.safe_to_send = false;
     } else if (disposable) {
       result.status = 'risky';
