@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const dns = require('dns');
+const https = require('https');
 const net = require('net');
 
 const app = express();
@@ -353,6 +354,43 @@ function smtpProbe(mxHost, email) {
 }
 
 
+
+// ─── Mailboxlayer config ──────────────────────────────────────────────────────
+const MAILBOXLAYER_KEY = process.env.MAILBOXLAYER_KEY || '206c6b33b2e7c3fa4d588640922866b8';
+
+function mailboxlayerCheck(email) {
+  return new Promise((resolve) => {
+    const url = `https://apilayer.net/api/check?access_key=${MAILBOXLAYER_KEY}&email=${encodeURIComponent(email)}&smtp=1&format=1`;
+    https.get(url, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          if (result.error) {
+            resolve({ success: false, error: result.error.info || 'Mailboxlayer error' });
+            return;
+          }
+          resolve({
+            success: true,
+            deliverable: result.smtp_check === true,
+            disposable: result.disposable,
+            free:        result.free,
+            formatValid: result.format_valid,
+            mxFound:     result.mx_found,
+            score:       result.score,
+            did_you_mean: result.did_you_mean || null,
+          });
+        } catch (e) {
+          resolve({ success: false, error: 'Failed to parse Mailboxlayer response' });
+        }
+      });
+    }).on('error', (e) => {
+      resolve({ success: false, error: e.message });
+    });
+  });
+}
+
 // ─── Catch-all detection ──────────────────────────────────────────────────────
 const catchAllCache = new Map(); // cache per domain to avoid double probing
 
@@ -549,7 +587,7 @@ async function fullValidate(email, options = {}) {
 
 // Health
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.2.0', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', version: '1.3.0', timestamp: new Date().toISOString() });
 });
 
 // Single email
