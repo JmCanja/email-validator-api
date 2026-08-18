@@ -9,6 +9,9 @@ const net = require('net');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust Render's proxy
+app.set('trust proxy', 1);
+
 // ─── Middleware ───────────────────────────────────────────────────────────────
 const path = require('path');
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -580,7 +583,7 @@ async function fullValidate(email, options = {}) {
 
 // Health
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.3.2', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', version: '1.3.4', timestamp: new Date().toISOString() });
 });
 
 // Single email
@@ -657,6 +660,18 @@ app.post('/api/validate/bulk', bulkLimiter, async (req, res) => {
     res.json({ summary, results });
   } catch (err) {
     res.status(500).json({ error: 'Internal error', detail: err.message });
+  }
+});
+
+
+// ─── Debug: test Mailboxlayer connectivity ────────────────────────────────────
+app.get('/api/test-mailboxlayer', async (req, res) => {
+  const email = req.query.email || 'test@gmail.com';
+  try {
+    const result = await mailboxlayerCheck(email);
+    res.json({ result, key_used: MAILBOXLAYER_KEY.slice(0,8) + '...' });
+  } catch (e) {
+    res.json({ error: e.message });
   }
 });
 
