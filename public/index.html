@@ -431,6 +431,45 @@
   }
   .col-preview { margin-top: 8px; font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
 
+
+  /* List health score */
+  .health-score-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    animation: fadeUp 0.3s ease;
+  }
+  .health-gauge {
+    position: relative;
+    width: 80px; height: 80px;
+    flex-shrink: 0;
+  }
+  .health-gauge svg { transform: rotate(-90deg); }
+  .health-gauge-text {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+  .health-pct { font-size: 20px; font-weight: 800; line-height: 1; }
+  .health-lbl { font-size: 9px; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
+  .health-info { flex: 1; }
+  .health-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .health-desc { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; line-height: 1.6; }
+  .health-bar-wrap { margin-top: 10px; }
+  .health-bar-track { height: 6px; background: var(--border); border-radius: 6px; overflow: hidden; display: flex; }
+  .health-bar-valid { height: 100%; background: var(--green); transition: width 0.6s; }
+  .health-bar-risky { height: 100%; background: var(--amber); transition: width 0.6s; }
+  .health-bar-invalid { height: 100%; background: var(--red); transition: width 0.6s; }
+  .health-bar-unknown { height: 100%; background: var(--blue); transition: width 0.6s; }
+  .health-bar-legend { display: flex; gap: 12px; margin-top: 6px; flex-wrap: wrap; }
+  .health-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .health-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
   @media (max-width: 600px) {
     .summary-grid { grid-template-columns: repeat(3, 1fr); }
     .stat-divider { grid-column: span 3; }
@@ -618,7 +657,7 @@
       ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);color:var(--green);font-size:13px;font-weight:600;margin-bottom:12px;">✅ Safe to send</div>`
       : d.safe_to_send === false && d.status !== 'unknown'
       ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);color:var(--red);font-size:13px;font-weight:600;margin-bottom:12px;">❌ Do not send — risk of bounce</div>`
-      : `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);color:var(--amber);font-size:13px;font-weight:600;margin-bottom:12px;">⚠ Uncertain — use with caution in GHL</div>`;
+      : `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);color:var(--amber);font-size:13px;font-weight:600;margin-bottom:12px;">⚠ Uncertain — use with caution in any ESP</div>`;
 
     const flagsHtml = d.flags && d.flags.length
       ? `<div class="flags-list">${d.flags.map(f=>`<div class="flag-item">⚑ ${esc(f.message)}</div>`).join('')}</div><div class="divider"></div>`
@@ -872,8 +911,59 @@
 
     const notValid = s.invalid + s.risky + s.unknown;
 
+    // ── List health score ──────────────────────────────────────────────────
+    const healthPct = s.total > 0 ? Math.round((s.valid / s.total) * 100) : 0;
+    const healthColor = healthPct >= 80 ? 'var(--green)' : healthPct >= 50 ? 'var(--amber)' : 'var(--red)';
+    const healthLabel = healthPct >= 80 ? '🟢 Healthy list' : healthPct >= 50 ? '🟡 Needs cleaning' : '🔴 Poor list quality';
+    const healthDesc = healthPct >= 80
+      ? 'Your list is in good shape — safe to import into your ESP.'
+      : healthPct >= 50
+      ? 'Some emails need to be removed before sending. Export the valid list before importing.'
+      : 'High risk of bounces. Remove invalid and risky emails before sending to any ESP.';
+
+    const r = 34; const circ = 2 * Math.PI * r;
+    const dash = (healthPct / 100) * circ;
+
+    const validPct = s.total > 0 ? (s.valid/s.total*100).toFixed(1) : 0;
+    const riskyPct = s.total > 0 ? (s.risky/s.total*100).toFixed(1) : 0;
+    const invalidPct = s.total > 0 ? (s.invalid/s.total*100).toFixed(1) : 0;
+    const unknownPct = s.total > 0 ? (s.unknown/s.total*100).toFixed(1) : 0;
+
+    const healthCard = `<div class="health-score-card">
+      <div class="health-gauge">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r="${r}" fill="none" stroke="var(--border)" stroke-width="6"/>
+          <circle cx="40" cy="40" r="${r}" fill="none" stroke="${healthColor}" stroke-width="6"
+            stroke-dasharray="${dash} ${circ}" stroke-linecap="round"/>
+        </svg>
+        <div class="health-gauge-text">
+          <span class="health-pct" style="color:${healthColor}">${healthPct}%</span>
+          <span class="health-lbl">health</span>
+        </div>
+      </div>
+      <div class="health-info">
+        <div class="health-title" style="color:${healthColor}">${healthLabel}</div>
+        <div class="health-desc">${healthDesc}</div>
+        <div class="health-bar-wrap">
+          <div class="health-bar-track">
+            <div class="health-bar-valid" style="width:${validPct}%"></div>
+            <div class="health-bar-risky" style="width:${riskyPct}%"></div>
+            <div class="health-bar-unknown" style="width:${unknownPct}%"></div>
+            <div class="health-bar-invalid" style="width:${invalidPct}%"></div>
+          </div>
+          <div class="health-bar-legend">
+            <span class="health-legend-item"><span class="health-legend-dot" style="background:var(--green)"></span>Valid ${validPct}%</span>
+            <span class="health-legend-item"><span class="health-legend-dot" style="background:var(--amber)"></span>Risky ${riskyPct}%</span>
+            <span class="health-legend-item"><span class="health-legend-dot" style="background:var(--blue)"></span>Unknown ${unknownPct}%</span>
+            <span class="health-legend-item"><span class="health-legend-dot" style="background:var(--red)"></span>Invalid ${invalidPct}%</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
     box.innerHTML = `
       ${dedupHtml}
+      ${healthCard}
       <div class="summary-grid">
         <div class="stat">
           <div class="stat-val" style="color:var(--text)">${s.total}</div>
